@@ -6,11 +6,12 @@ import jakarta.faces.model.SelectItem;
 import jakarta.faces.view.ViewScoped;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import ma.emsi.abkari.tp1abkari.llm.JsonUtilPourGemini;
+import ma.emsi.abkari.tp1abkari.llm.LlmInteraction;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Backing bean pour la page JSF index.xhtml.
@@ -59,6 +60,27 @@ public class Bb implements Serializable {
     private FacesContext facesContext;
 
     /**
+     * Contient la requête JSON brute envoyée à l'API Gemini.
+     */
+    private String texteRequeteJson;
+
+    /**
+     * Contient la réponse JSON brute reçue de l'API Gemini.
+     */
+    private String texteReponseJson;
+
+    /**
+     * Active ou désactive le mode débogage.
+     */
+    private boolean debug = false;
+
+    /**
+     * Utilitaire pour gérer les requêtes JSON vers Gemini
+     */
+    @Inject
+    private JsonUtilPourGemini jsonUtil;
+
+    /**
      * Obligatoire pour un bean CDI (classe gérée par CDI), s'il y a un autre constructeur.
      */
     public Bb() {
@@ -105,6 +127,37 @@ public class Bb implements Serializable {
         this.conversation = new StringBuilder(conversation);
     }
 
+    public String getTexteRequeteJson() {
+        return texteRequeteJson;
+    }
+
+    public void setTexteRequeteJson(String texteRequeteJson) {
+        this.texteRequeteJson = texteRequeteJson;
+    }
+
+    public String getTexteReponseJson() {
+        return texteReponseJson;
+    }
+
+    public void setTexteReponseJson(String texteReponseJson) {
+        this.texteReponseJson = texteReponseJson;
+    }
+
+    public boolean isDebug() {
+        return debug;
+    }
+
+    public void setDebug(Boolean debug) {
+        this.debug = debug;
+    }
+
+    /**
+     *
+     */
+    public void toggleDebug() {
+        this.setDebug(!isDebug());
+    }
+
     /**
      * Envoie la question au serveur.
      * En attendant de l'envoyer à un LLM, le serveur fait un traitement quelconque, juste pour tester :
@@ -121,31 +174,25 @@ public class Bb implements Serializable {
             facesContext.addMessage(null, message);
             return null;
         }
-        // Entourer la réponse avec "||".
-        this.reponse = "||";
-        // Si la conversation n'a pas encore commencé, ajouter le rôle système au début de la réponse
-        if (this.conversation.isEmpty()) {
-            // Ajouter le rôle système au début de la réponse
-            this.reponse += roleSysteme.toUpperCase(Locale.FRENCH) + "\n";
-            // Invalide le bouton pour changer le rôle système
-            this.roleSystemeChangeable = false;
+
+        try {
+            // On configure le rôle système si c'est la première question
+            if (this.conversation.isEmpty()) {
+                jsonUtil.setSystemRole(this.roleSysteme);
+                this.roleSystemeChangeable = false;
+            }
+
+            LlmInteraction interaction = jsonUtil.envoyerRequete(question);
+            this.reponse = interaction.reponseExtraite();
+            this.texteRequeteJson = interaction.questionJson();
+            this.texteReponseJson = interaction.reponseJson();
+        } catch (Exception e) {
+            FacesMessage message =
+                    new FacesMessage(FacesMessage.SEVERITY_ERROR,
+                            "Problème de connexion avec l'API du LLM",
+                            "Problème de connexion avec l'API du LLM" + e.getMessage());
+            facesContext.addMessage(null, message);
         }
-        // this.reponse += question.toLowerCase(Locale.FRENCH) + "||";
-
-        // TRAITEMENT ABKARI Mohamed Wahib (BONUS)
-        // Affichage longueur de chaque mot
-        String[] mots = question.split(" ");
-
-        StringBuilder resultat = new StringBuilder(question+"\nLongeurs: ");
-
-        for (String mot: mots) {
-            // On enlève tous les caractères spéciaux
-            int longueur = mot.replaceAll("[^a-zA-Z]", "").length();
-            resultat.append(longueur).append(" ");
-        }
-
-        this.reponse = this.reponse + resultat.toString().trim() + "||";
-
 
         // La conversation contient l'historique des questions-réponses depuis le début.
         afficherConversation();
