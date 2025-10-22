@@ -245,6 +245,13 @@ public class Bb implements Serializable {
                     are you tell them the average price of a meal.
                     """;
             this.listeRolesSysteme.add(new SelectItem(role, "Guide touristique"));
+
+            role = """
+                    You are a Moroccan Darija teacher. Teach common phrases, explain pronunciation, provide
+                    cultural context, and translate between French/English and Darija. Make learning fun with
+                    everyday examples and cultural insights about Morocco.
+                    """;
+            this.listeRolesSysteme.add(new SelectItem(role, "Prof de Darija (Arabe Marocaine)"));
         }
 
         return this.listeRolesSysteme;
